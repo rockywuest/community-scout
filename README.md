@@ -91,6 +91,9 @@ KEYWORDS="raspberry pi|mcp|clawdbot|moltbot|local llm"
 
 # Grok API key for X/Twitter (optional)
 XAI_API_KEY="${XAI_API_KEY:-}"
+
+# Reviewed Xquik/TweetClaw export to include in the report (optional)
+XQUIK_EXPORT_FILE="/path/to/reviewed-xquik-export.jsonl"
 ```
 
 ## Requirements
@@ -99,6 +102,7 @@ XAI_API_KEY="${XAI_API_KEY:-}"
 - `curl`
 - `jq` (for JSON parsing)
 - Optional: `XAI_API_KEY` env var for X/Twitter via Grok API
+- Optional: `XQUIK_EXPORT_FILE` pointing at a reviewed Xquik/TweetClaw CSV, JSON, or JSONL export
 
 ## Built For
 
@@ -108,7 +112,7 @@ XAI_API_KEY="${XAI_API_KEY:-}"
 
 ## How It Works
 
-1. **Scrape** — curl pulls from Reddit JSON API, HN Algolia, GitHub trending page, Grok X Search
+1. **Scrape** — curl pulls from Reddit JSON API, HN Algolia, GitHub trending page, Grok X Search, and optional reviewed Xquik/TweetClaw exports
 2. **Dump** — Raw results saved to timestamped markdown file
 3. **Agent reads** — Your AI assistant reads the file (via heartbeat, cron, or manual trigger)
 4. **Filter & brief** — Agent applies your interest profile, delivers relevant items only

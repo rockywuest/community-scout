@@ -188,34 +188,41 @@ if [ -n "${XQUIK_EXPORT_FILE:-}" ]; then
 const fs = require("fs");
 const path = process.argv[2];
 
-function splitCsvLine(line) {
-  const cells = [];
+function splitCsvRecords(text) {
+  const rows = [];
+  let row = [];
   let value = "";
   let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const next = line[i + 1];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
     if (char === '"' && quoted && next === '"') {
       value += '"';
       i++;
     } else if (char === '"') {
       quoted = !quoted;
     } else if (char === "," && !quoted) {
-      cells.push(value);
+      row.push(value);
+      value = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") i++;
+      row.push(value);
+      if (row.some((cell) => cell.trim())) rows.push(row);
+      row = [];
       value = "";
     } else {
       value += char;
     }
   }
-  cells.push(value);
-  return cells;
+  row.push(value);
+  if (row.some((cell) => cell.trim())) rows.push(row);
+  return rows;
 }
 
 function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  const headers = splitCsvLine(lines.shift() || "").map((header) => header.trim());
-  return lines.map((line) => {
-    const cells = splitCsvLine(line);
+  const records = splitCsvRecords(text);
+  const headers = (records.shift() || []).map((header) => header.trim());
+  return records.map((cells) => {
     return Object.fromEntries(headers.map((header, index) => [header, cells[index] || ""]));
   });
 }
@@ -243,6 +250,17 @@ function pick(row, keys) {
   return "";
 }
 
+function hasReviewedStatus(status) {
+  if (!status) return true;
+  const normalized = status
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const blocked = new Set(["draft", "needs_review", "not_approved", "not_reviewed", "pending", "rejected", "unreviewed"]);
+  const approved = new Set(["approved", "published", "ready", "reviewed", "selected"]);
+  return !blocked.has(normalized) && approved.has(normalized);
+}
+
 try {
   const rows = parseRows(fs.readFileSync(path, "utf8"));
   const records = rows
@@ -254,7 +272,7 @@ try {
       score: pick(row, ["score", "relevance", "priority", "likes", "impressions"]),
     }))
     .filter((row) => row.text)
-    .filter((row) => !row.status || /review|approve|ready|select|publish/i.test(row.status))
+    .filter((row) => hasReviewedStatus(row.status))
     .slice(0, 12);
 
   if (!records.length) {

@@ -27,6 +27,7 @@ Community Scout scrapes 4+ platforms, filters by your interests (AI agents, codi
 | **GitHub Trending** | GitHub API | Free |
 | **Reddit** | JSON API (no auth needed) | Free |
 | **X / Twitter** | Grok X Search (xAI Responses API) | ~$0.02/search |
+| **Xquik / TweetClaw exports** | Reviewed CSV, JSON, or JSONL file via `XQUIK_EXPORT_FILE` | Free |
 | **Product Hunt** | Planned | — |
 | **dev.to** | Planned (RSS) | Free |
 
@@ -74,6 +75,9 @@ Modify the search prompt in the X/Twitter section. Be specific:
 ```
 "Search X for posts about [your-tool] OR [your-niche] in the last 7 days..."
 ```
+
+### Include reviewed Xquik exports
+Set `XQUIK_EXPORT_FILE` to a reviewed Xquik or TweetClaw CSV, JSON, or JSONL export. Community Scout adds the strongest rows to the report as account-scoped X/Twitter evidence, without handling cookies or posting.
 
 ## Analysis Instructions (for your agent)
 

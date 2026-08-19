@@ -177,7 +177,129 @@ fi
 echo "" >> "$OUTFILE"
 
 # ============================================================
-# 5. PRODUCT HUNT — AI launches
+# 5. XQUIK / TWEETCLAW — reviewed X/Twitter exports
+# ============================================================
+echo "## Xquik / TweetClaw Reviewed Exports" >> "$OUTFILE"
+echo "" >> "$OUTFILE"
+
+if [ -n "${XQUIK_EXPORT_FILE:-}" ]; then
+  if [ -f "$XQUIK_EXPORT_FILE" ]; then
+    node - "$XQUIK_EXPORT_FILE" <<'NODE' >> "$OUTFILE" 2>/dev/null
+const fs = require("fs");
+const path = process.argv[2];
+
+function splitCsvRecords(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '"' && quoted && next === '"') {
+      value += '"';
+      i++;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(value);
+      value = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") i++;
+      row.push(value);
+      if (row.some((cell) => cell.trim())) rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += char;
+    }
+  }
+  row.push(value);
+  if (row.some((cell) => cell.trim())) rows.push(row);
+  return rows;
+}
+
+function parseCsv(text) {
+  const records = splitCsvRecords(text);
+  const headers = (records.shift() || []).map((header) => header.trim());
+  return records.map((cells) => {
+    return Object.fromEntries(headers.map((header, index) => [header, cells[index] || ""]));
+  });
+}
+
+function parseRows(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const lines = trimmed.split(/\r?\n/).filter(Boolean);
+  if (lines.length > 1 && lines.every((line) => line.trim().startsWith("{"))) {
+    return lines.map((line) => JSON.parse(line));
+  }
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed;
+    return parsed.tweets || parsed.items || parsed.data || parsed.results || [parsed];
+  }
+  return parseCsv(trimmed);
+}
+
+function pick(row, keys) {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+function hasReviewedStatus(status) {
+  if (!status) return true;
+  const normalized = status
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const blocked = new Set(["draft", "needs_review", "not_approved", "not_reviewed", "pending", "rejected", "unreviewed"]);
+  const approved = new Set(["approved", "published", "ready", "reviewed", "selected"]);
+  return !blocked.has(normalized) && approved.has(normalized);
+}
+
+try {
+  const rows = parseRows(fs.readFileSync(path, "utf8"));
+  const records = rows
+    .map((row) => ({
+      author: pick(row, ["author", "username", "handle", "screenName", "user"]),
+      text: pick(row, ["text", "content", "tweetText", "body", "fullText"]),
+      url: pick(row, ["url", "tweetUrl", "link", "permalink"]),
+      status: pick(row, ["status", "reviewStatus", "state"]),
+      score: pick(row, ["score", "relevance", "priority", "likes", "impressions"]),
+    }))
+    .filter((row) => row.text)
+    .filter((row) => hasReviewedStatus(row.status))
+    .slice(0, 12);
+
+  if (!records.length) {
+    console.log("  (No reviewed Xquik/TweetClaw rows found.)");
+  } else {
+    records.forEach((row) => {
+      const author = row.author ? `@${row.author.replace(/^@/, "")}: ` : "";
+      const score = row.score ? ` [score: ${row.score}]` : "";
+      console.log(`- ${author}${row.text.replace(/\s+/g, " ").slice(0, 220)}${score}`);
+      if (row.url) console.log(`  ${row.url}`);
+      console.log("");
+    });
+  }
+} catch (error) {
+  console.log(`  (Could not parse ${path}: ${error.message})`);
+}
+NODE
+  else
+    echo "  (XQUIK_EXPORT_FILE points to a missing file: $XQUIK_EXPORT_FILE)" >> "$OUTFILE"
+  fi
+else
+  echo "  (Set XQUIK_EXPORT_FILE to a reviewed Xquik/TweetClaw CSV, JSON, or JSONL export to include account-scoped X/Twitter evidence.)" >> "$OUTFILE"
+fi
+echo "" >> "$OUTFILE"
+
+# ============================================================
+# 6. PRODUCT HUNT — AI launches
 # ============================================================
 echo "## Product Hunt (Recent AI Launches)" >> "$OUTFILE"
 echo "" >> "$OUTFILE"
